@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Book Slot — ParkEase</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+<div id="scroll-progress"></div>
+<div id="loading-overlay"><div class="loader-ring"></div></div>
+<div id="toast-container"></div>
+<button id="back-to-top">↑</button>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-brand">🅿️ <span>Park</span>Ease</a>
+    <div class="nav-links" id="nav-links">
+      <a href="/">Dashboard</a>
+      <a href="/booking" class="active">Book Slot</a>
+      <a href="/history">History</a>
+    </div>
+    <div class="nav-actions">
+      <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">☀️</button>
+      <button class="btn btn-secondary btn-sm" onclick="logout()">Sign Out</button>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="section-header" style="margin-top:2rem">
+    <h2>Book a Parking Slot</h2>
+    <p>Select an available slot and fill in your details</p>
+  </div>
+
+  <div class="grid-2" style="align-items:start">
+    <!-- Slot Selection -->
+    <div>
+      <div class="glass-card">
+        <h3 style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:1.25rem">Available Slots</h3>
+        <div id="available-slots">
+          <p style="color:var(--text-muted)">Loading available slots…</p>
+        </div>
+        <div id="selected-slot-info" style="margin-top:1rem;color:var(--accent);font-weight:600;font-size:0.9rem"></div>
+      </div>
+    </div>
+
+    <!-- Booking Form -->
+    <div class="glass-card">
+      <h3 style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:1.25rem">Reservation Details</h3>
+      <form id="booking-form" onsubmit="handleBooking(event)">
+        <div class="form-group">
+          <label class="form-label">Select Vehicle</label>
+          <select id="book-vehicle" class="form-control" required>
+            <option value="">Loading vehicles…</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date</label>
+          <input id="book-date" type="date" class="form-control" required/>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Start Time</label>
+            <input id="book-start" type="time" class="form-control" required/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">End Time</label>
+            <input id="book-end" type="time" class="form-control" required/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Payment Method</label>
+          <select id="book-payment" class="form-control">
+            <option value="CASH">💵 Cash</option>
+            <option value="CARD">💳 Card</option>
+            <option value="UPI">📱 UPI</option>
+          </select>
+        </div>
+
+        <!-- Pricing Info Box -->
+        <div style="background:var(--accent-dim);border:1px solid rgba(0,212,170,0.2);border-radius:10px;padding:1rem;font-size:0.85rem;color:var(--text-muted);margin-bottom:1rem">
+          💡 <strong style="color:var(--accent)">Pricing:</strong> Calculated as Hours × Price/hr. Shown after booking.
+        </div>
+
+        <button id="book-btn" type="submit" class="btn btn-primary btn-block">
+          Confirm Booking
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+  // Set min date to today
+  document.getElementById('book-date').min = new Date().toISOString().split('T')[0];
+  initBooking();
+</script>
+</body>
+</html>

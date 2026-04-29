@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Book a Slot — ParkEasy</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+
+<div id="navbar-placeholder"></div>
+
+<div class="page">
+
+  <div class="page-header">
+    <div>
+      <div class="page-title">Book a <span>Parking Slot</span></div>
+      <p class="text-muted mt-1">Select a slot, vehicle and duration to reserve</p>
+    </div>
+    <a href="/pages/index.html" class="btn btn-secondary">← Back</a>
+  </div>
+
+  <div id="alert-main" class="alert"></div>
+
+  <div style="display:grid; grid-template-columns: 1fr 340px; gap:1.5rem; align-items:start;">
+
+    <!-- Left: Booking Form -->
+    <div class="card">
+      <h2 style="margin-bottom:1.5rem;">Reservation Details</h2>
+
+      <div class="form-group">
+        <label>Select Parking Slot</label>
+        <select id="slotId" onchange="updatePricing()">
+          <option value="">— Choose a slot —</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Select Your Vehicle</label>
+        <select id="vehicleId">
+          <option value="">— Choose a vehicle —</option>
+        </select>
+        <div class="text-muted mt-1">
+          <a href="/pages/index.html" style="color:var(--accent); font-size:0.85rem;">+ Add a new vehicle</a>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Reservation Date</label>
+        <input type="date" id="date"/>
+      </div>
+
+      <div class="form-group">
+        <label>Start Time</label>
+        <input type="time" id="startTime"/>
+      </div>
+
+      <div class="form-group">
+        <label>Duration (Hours)</label>
+        <select id="durationHours" onchange="updatePricing()">
+          <option value="1">1 Hour</option>
+          <option value="2">2 Hours</option>
+          <option value="3">3 Hours</option>
+          <option value="4">4 Hours</option>
+          <option value="6">6 Hours</option>
+          <option value="8">8 Hours</option>
+          <option value="12">12 Hours</option>
+          <option value="24">24 Hours</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Payment Method</label>
+        <select id="paymentMethod">
+          <option value="CASH">Cash</option>
+          <option value="CARD">Card</option>
+          <option value="UPI">UPI</option>
+        </select>
+      </div>
+
+      <button class="btn btn-primary btn-full" onclick="doBook()">Confirm Booking</button>
+    </div>
+
+    <!-- Right: Pricing Summary -->
+    <div>
+      <div class="card" id="price-summary">
+        <h3 style="margin-bottom:1.2rem;">💰 Price Summary</h3>
+        <div id="summary-slot" class="text-muted" style="margin-bottom:1rem;">
+          Select a slot to see pricing
+        </div>
+        <div id="summary-details" style="display:none;">
+          <div class="flex-between" style="margin-bottom:0.6rem;">
+            <span class="text-muted">Slot:</span>
+            <span id="sum-slot-no" class="text-accent">—</span>
+          </div>
+          <div class="flex-between" style="margin-bottom:0.6rem;">
+            <span class="text-muted">Type:</span>
+            <span id="sum-slot-type">—</span>
+          </div>
+          <div class="flex-between" style="margin-bottom:0.6rem;">
+            <span class="text-muted">Rate:</span>
+            <span id="sum-rate">—</span>
+          </div>
+          <div class="flex-between" style="margin-bottom:0.6rem;">
+            <span class="text-muted">Duration:</span>
+            <span id="sum-duration">—</span>
+          </div>
+          <div class="divider"></div>
+          <!-- Pricing formula from original Pricing class -->
+          <div class="flex-between">
+            <span style="font-weight:600;">Total Amount</span>
+            <span id="sum-total" style="font-family:'Syne',sans-serif;font-size:1.4rem;color:var(--accent);font-weight:800;">₹0</span>
+          </div>
+          <div class="text-muted mt-1" style="font-size:0.78rem;">
+            Formula: Duration × Rate per hour
+          </div>
+        </div>
+      </div>
+
+      <!-- Available Slots quick list -->
+      <div class="card mt-2">
+        <h3 style="margin-bottom:1rem;">🅿️ Available Slots</h3>
+        <div id="quick-slots"></div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+  requireLogin();
+  const session = getSession();
+  renderNavbar(session.role);
+
+  let allSlots = [];
+
+  // Set today's date as default
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('date').value = today;
+  document.getElementById('startTime').value = '10:00';
+
+  async function loadOptions() {
+    // Load available slots
+    allSlots = await apiGet('/slots/available');
+    const slotSel = document.getElementById('slotId');
+    allSlots.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = `${s.slotNo} — ${s.slotType} — ₹${s.pricePerHour}/hr`;
+      opt.dataset.price = s.pricePerHour;
+      opt.dataset.type = s.slotType;
+      opt.dataset.no = s.slotNo;
+      slotSel.appendChild(opt);
+    });
+
+    // Show quick list
+    const ql = document.getElementById('quick-slots');
+    if (allSlots.length === 0) {
+      ql.innerHTML = '<div class="text-muted">No available slots</div>';
+    } else {
+      ql.innerHTML = allSlots.map(s => `
+        <div class="flex-between" style="padding:0.5rem 0; border-bottom:1px solid var(--border);">
+          <span class="text-accent" style="font-weight:700;">${s.slotNo}</span>
+          <span class="text-muted" style="font-size:0.85rem;">${s.slotType}</span>
+          <span>₹${s.pricePerHour}/hr</span>
+        </div>
+      `).join('');
+    }
+
+    // Pre-select if slotId passed via URL
+    const params = new URLSearchParams(window.location.search);
+    const preSlot = params.get('slotId');
+    if (preSlot) {
+      slotSel.value = preSlot;
+      updatePricing();
+    }
+
+    // Load user vehicles
+    const vehicles = await apiGet('/vehicles/user/' + session.id);
+    const vSel = document.getElementById('vehicleId');
+    if (vehicles.length === 0) {
+      vSel.innerHTML = '<option value="">— No vehicles added —</option>';
+    } else {
+      vehicles.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v.id;
+        opt.textContent = `${v.vehicleNumber} (${v.vehicleType} — ${v.model})`;
+        vSel.appendChild(opt);
+      });
+    }
+  }
+
+  // Update pricing summary when slot or duration changes
+  // This mirrors the Pricing.calculateFare() logic: total = hours × pricePerHour
+  function updatePricing() {
+    const slotSel = document.getElementById('slotId');
+    const selected = slotSel.options[slotSel.selectedIndex];
+    const hours = parseInt(document.getElementById('durationHours').value);
+
+    if (!selected || !selected.dataset.price) {
+      document.getElementById('summary-details').style.display = 'none';
+      document.getElementById('summary-slot').style.display = 'block';
+      return;
+    }
+
+    const price = parseFloat(selected.dataset.price);
+    const total = hours * price;
+
+    document.getElementById('summary-slot').style.display = 'none';
+    document.getElementById('summary-details').style.display = 'block';
+    document.getElementById('sum-slot-no').textContent  = selected.dataset.no;
+    document.getElementById('sum-slot-type').textContent = selected.dataset.type;
+    document.getElementById('sum-rate').textContent     = `₹${price}/hr`;
+    document.getElementById('sum-duration').textContent = `${hours} hour${hours > 1 ? 's' : ''}`;
+    document.getElementById('sum-total').textContent    = `₹${total.toFixed(2)}`;
+  }
+
+  async function doBook() {
+    const slotId       = document.getElementById('slotId').value;
+    const vehicleId    = document.getElementById('vehicleId').value;
+    const date         = document.getElementById('date').value;
+    const startTime    = document.getElementById('startTime').value;
+    const durationHours= document.getElementById('durationHours').value;
+    const paymentMethod= document.getElementById('paymentMethod').value;
+
+    if (!slotId || !vehicleId || !date || !startTime) {
+      return showAlert('alert-main', 'Please fill in all fields.', 'error');
+    }
+
+    const data = await apiPost('/reservations/book', {
+      userId: session.id,
+      vehicleId,
+      slotId,
+      date,
+      startTime: startTime + ':00',
+      durationHours,
+      paymentMethod
+    });
+
+    if (data.error) {
+      showAlert('alert-main', data.error, 'error');
+    } else {
+      showAlert('alert-main', `✅ Booking confirmed! Reservation #${data.id}. Total: ₹${data.totalAmount}`, 'success');
+      // Reload slots after booking
+      setTimeout(() => loadOptions(), 1500);
+    }
+  }
+
+  loadOptions();
+</script>
+</body>
+</html>

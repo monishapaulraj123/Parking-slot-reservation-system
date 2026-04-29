@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Panel — ParkEase</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+<div id="scroll-progress"></div>
+<div id="loading-overlay"><div class="loader-ring"></div></div>
+<div id="toast-container"></div>
+<button id="back-to-top">↑</button>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-brand">🅿️ <span>Park</span>Ease</a>
+    <div class="nav-links">
+      <a href="/">Dashboard</a>
+      <a href="/admin" class="active">Admin Panel</a>
+    </div>
+    <div class="nav-actions">
+      <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">☀️</button>
+      <span class="chip chip-admin" style="font-size:0.75rem">ADMIN</span>
+      <button class="btn btn-secondary btn-sm" onclick="logout()">Sign Out</button>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin:2rem 0 1.5rem;flex-wrap:wrap;gap:1rem">
+    <div>
+      <h1 style="font-family:'Syne',sans-serif;font-weight:800;font-size:2rem;letter-spacing:-0.02em">
+        Admin Panel
+      </h1>
+      <p style="color:var(--text-muted)">Logged in as <strong id="admin-name">Admin</strong></p>
+    </div>
+  </div>
+
+  <!-- Report Cards -->
+  <div class="stats-row" style="margin-bottom:2rem">
+    <div class="stat-card">
+      <div class="stat-icon">🏢</div>
+      <div class="stat-number" id="report-slots">—</div>
+      <div class="stat-label">Total Slots</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">✅</div>
+      <div class="stat-number" id="report-available">—</div>
+      <div class="stat-label">Available</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">📋</div>
+      <div class="stat-number" id="report-reservations">—</div>
+      <div class="stat-label">Total Reservations</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">💰</div>
+      <div class="stat-number" id="report-revenue">—</div>
+      <div class="stat-label">Total Revenue</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div id="admin-tabs">
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="tab-slots">Parking Slots</button>
+      <button class="tab-btn" data-tab="tab-reservations">Reservations</button>
+      <button class="tab-btn" data-tab="tab-feedback">Feedback</button>
+      <button class="tab-btn" data-tab="tab-add-slot">Add Slot</button>
+    </div>
+
+    <!-- Tab: Slots -->
+    <div class="tab-content active" id="tab-slots">
+      <div class="glass-card">
+        <h3 style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:1.25rem">All Parking Slots</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Slot No.</th><th>Type</th><th>Status</th><th>Price/hr</th></tr></thead>
+            <tbody id="admin-slots-tbody">
+              <tr><td colspan="4" style="text-align:center;color:var(--text-muted)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Reservations -->
+    <div class="tab-content" id="tab-reservations">
+      <div class="glass-card">
+        <h3 style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:1.25rem">All Reservations</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>User</th><th>Vehicle</th><th>Slot</th><th>Date</th><th>Time</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody id="admin-res-tbody">
+              <tr><td colspan="7" style="text-align:center;color:var(--text-muted)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Feedback -->
+    <div class="tab-content" id="tab-feedback">
+      <div class="glass-card">
+        <h3 style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:1.25rem">User Feedback</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>User</th><th>Slot</th><th>Rating</th><th>Comment</th></tr></thead>
+            <tbody id="admin-fb-tbody">
+              <tr><td colspan="4" style="text-align:center;color:var(--text-muted)">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Add Slot -->
+    <div class="tab-content" id="tab-add-slot">
+      <div class="glass-card" style="max-width:500px">
+        <h3 style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:1.25rem">Add New Parking Slot</h3>
+        <form id="add-slot-form" onsubmit="handleAddSlot(event)">
+          <div class="form-group">
+            <label class="form-label">Slot Number</label>
+            <input id="slot-number" class="form-control" placeholder="e.g. A1, B3, C7" required/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Slot Type</label>
+            <select id="slot-type" class="form-control">
+              <option value="CAR">🚗 Car</option>
+              <option value="BIKE">🏍️ Bike</option>
+              <option value="TRUCK">🚚 Truck</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Price Per Hour (₹)</label>
+            <input id="slot-price" type="number" class="form-control"
+                   placeholder="e.g. 50" min="1" step="0.5" required/>
+          </div>
+          <button type="submit" class="btn btn-primary">Add Slot</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+<script>initAdmin();</script>
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard — ParkEasy</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+
+<div id="navbar-placeholder"></div>
+
+<div class="page">
+
+  <!-- Welcome Header -->
+  <div class="page-header">
+    <div>
+      <div class="page-title">Welcome back, <span id="user-name">User</span> 👋</div>
+      <p class="text-muted mt-1">Manage your vehicle parking reservations</p>
+    </div>
+    <a href="/pages/booking.html" class="btn btn-primary">+ Book a Slot</a>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="stat-grid" id="stats">
+    <div class="stat-card">
+      <div class="stat-label">Available Slots</div>
+      <div class="stat-value" id="stat-available">—</div>
+      <div class="stat-sub">Ready to book</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">My Vehicles</div>
+      <div class="stat-value" id="stat-vehicles">—</div>
+      <div class="stat-sub">Registered vehicles</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">My Bookings</div>
+      <div class="stat-value" id="stat-bookings">—</div>
+      <div class="stat-sub">Total reservations</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('slots', this)">Available Slots</button>
+    <button class="tab-btn"        onclick="switchTab('vehicles', this)">My Vehicles</button>
+  </div>
+
+  <!-- Tab: Available Slots -->
+  <div class="tab-panel active" id="tab-slots">
+    <div id="slots-list" class="card-grid"></div>
+  </div>
+
+  <!-- Tab: My Vehicles -->
+  <div class="tab-panel" id="tab-vehicles">
+    <div class="flex-between" style="margin-bottom:1.2rem;">
+      <h2>My Vehicles</h2>
+      <button class="btn btn-primary" onclick="openAddVehicle()">+ Add Vehicle</button>
+    </div>
+    <div id="alert-v" class="alert"></div>
+    <div id="vehicles-list" class="card-grid"></div>
+  </div>
+
+</div>
+
+<!-- Add Vehicle Modal -->
+<div class="modal-backdrop" id="vehicle-modal">
+  <div class="modal">
+    <h2>Add Vehicle</h2>
+    <div id="alert-vm" class="alert"></div>
+    <div class="form-group">
+      <label>Vehicle Number</label>
+      <input type="text" id="v-number" placeholder="TN01AB1234"/>
+    </div>
+    <div class="form-group">
+      <label>Vehicle Type</label>
+      <select id="v-type">
+        <option value="CAR">Car</option>
+        <option value="BIKE">Bike</option>
+        <option value="TRUCK">Truck</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Model</label>
+      <input type="text" id="v-model" placeholder="Honda City"/>
+    </div>
+    <div class="form-group">
+      <label>Color</label>
+      <input type="text" id="v-color" placeholder="White"/>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('vehicle-modal')">Cancel</button>
+      <button class="btn btn-primary"   onclick="addVehicle()">Add Vehicle</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+  requireLogin();
+  const session = getSession();
+  document.getElementById('user-name').textContent = session.name;
+  renderNavbar(session.role);
+
+  async function loadData() {
+    // Load available slots
+    const slots = await apiGet('/slots/available');
+    document.getElementById('stat-available').textContent = slots.length;
+    renderSlots(slots);
+
+    // Load user's vehicles
+    const vehicles = await apiGet('/vehicles/user/' + session.id);
+    document.getElementById('stat-vehicles').textContent = vehicles.length;
+    renderVehicles(vehicles);
+
+    // Load user's reservations count
+    const reservations = await apiGet('/reservations/user/' + session.id);
+    document.getElementById('stat-bookings').textContent = reservations.length;
+  }
+
+  function renderSlots(slots) {
+    const container = document.getElementById('slots-list');
+    if (slots.length === 0) {
+      container.innerHTML = '<div class="empty"><div class="icon">🅿️</div><p>No available slots at the moment.</p></div>';
+      return;
+    }
+    container.innerHTML = slots.map(s => `
+      <div class="slot-card">
+        <div class="slot-no">${s.slotNo}</div>
+        <div class="slot-info">Type: ${s.slotType}</div>
+        <div class="slot-price">₹${s.pricePerHour}/hr</div>
+        <div class="mt-2 flex-between">
+          ${badgeHtml('Available', 'available')}
+          <a href="/pages/booking.html?slotId=${s.id}" class="btn btn-primary" style="padding:0.3rem 0.8rem;font-size:0.8rem;">Book</a>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderVehicles(vehicles) {
+    const container = document.getElementById('vehicles-list');
+    if (vehicles.length === 0) {
+      container.innerHTML = '<div class="empty"><div class="icon">🚙</div><p>No vehicles added yet.</p></div>';
+      return;
+    }
+    container.innerHTML = vehicles.map(v => `
+      <div class="slot-card">
+        <div class="slot-no">${v.vehicleNumber}</div>
+        <div class="slot-info">Type: ${v.vehicleType}</div>
+        <div class="slot-info">Model: ${v.model}</div>
+        <div class="slot-info">Color: ${v.color}</div>
+      </div>
+    `).join('');
+  }
+
+  function switchTab(name, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+  }
+
+  function openAddVehicle() {
+    document.getElementById('vehicle-modal').classList.add('show');
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('show');
+  }
+
+  async function addVehicle() {
+    const body = {
+      userId:        session.id,
+      vehicleNumber: document.getElementById('v-number').value.trim(),
+      vehicleType:   document.getElementById('v-type').value,
+      model:         document.getElementById('v-model').value.trim(),
+      color:         document.getElementById('v-color').value.trim()
+    };
+    if (!body.vehicleNumber || !body.model || !body.color) {
+      return showAlert('alert-vm', 'Please fill in all fields.', 'error');
+    }
+    const data = await apiPost('/vehicles/add', body);
+    if (data.error) {
+      showAlert('alert-vm', data.error, 'error');
+    } else {
+      closeModal('vehicle-modal');
+      showAlert('alert-v', 'Vehicle added successfully!', 'success');
+      loadData();
+    }
+  }
+
+  loadData();
+</script>
+</body>
+</html>

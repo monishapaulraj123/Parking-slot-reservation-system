@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Bookings — ParkEasy</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+
+<div id="navbar-placeholder"></div>
+
+<div class="page">
+
+  <div class="page-header">
+    <div>
+      <div class="page-title">My <span>Bookings</span></div>
+      <p class="text-muted mt-1">Your reservation history and feedback</p>
+    </div>
+    <a href="/pages/booking.html" class="btn btn-primary">+ New Booking</a>
+  </div>
+
+  <div id="alert-main" class="alert"></div>
+
+  <!-- Reservations Table -->
+  <div class="card" style="margin-bottom:1.5rem;">
+    <h2 style="margin-bottom:1.2rem;">Reservation History</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Slot</th>
+            <th>Vehicle</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Duration</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="reservation-tbody">
+          <tr><td colspan="9" class="text-muted" style="text-align:center;padding:2rem;">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Feedback Section -->
+  <div class="card">
+    <h2 style="margin-bottom:1.5rem;">Give Feedback</h2>
+    <div id="alert-fb" class="alert"></div>
+    <p class="text-muted" style="margin-bottom:1.2rem;">Rate a parking slot from your bookings</p>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+      <div class="form-group">
+        <label>Select Slot</label>
+        <select id="fb-slot">
+          <option value="">— Choose a slot —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Rating</label>
+        <div class="star-rating" id="stars">
+          <span class="star" data-val="1" onclick="setRating(1)">★</span>
+          <span class="star" data-val="2" onclick="setRating(2)">★</span>
+          <span class="star" data-val="3" onclick="setRating(3)">★</span>
+          <span class="star" data-val="4" onclick="setRating(4)">★</span>
+          <span class="star" data-val="5" onclick="setRating(5)">★</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Comment</label>
+      <textarea id="fb-comment" rows="3" placeholder="Share your parking experience..."></textarea>
+    </div>
+
+    <button class="btn btn-primary" onclick="submitFeedback()">Submit Feedback</button>
+  </div>
+
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+  requireLogin();
+  const session = getSession();
+  renderNavbar(session.role);
+
+  let selectedRating = 0;
+  let bookedSlots = {};
+
+  function setRating(val) {
+    selectedRating = val;
+    document.querySelectorAll('.star').forEach(s => {
+      s.classList.toggle('active', parseInt(s.dataset.val) <= val);
+    });
+  }
+
+  async function loadReservations() {
+    const reservations = await apiGet('/reservations/user/' + session.id);
+    const tbody = document.getElementById('reservation-tbody');
+    const fbSlot = document.getElementById('fb-slot');
+
+    if (reservations.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="9"><div class="empty"><div class="icon">📋</div><p>No bookings yet.</p></div></td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = reservations.map(r => `
+      <tr>
+        <td>#${r.id}</td>
+        <td class="text-accent">${r.slot?.slotNo || '—'}</td>
+        <td>${r.vehicle?.vehicleNumber || '—'}</td>
+        <td>${r.reservationDate || '—'}</td>
+        <td>${r.startTime?.substring(0,5) || '—'} → ${r.endTime?.substring(0,5) || '—'}</td>
+        <td>${r.durationHours}h</td>
+        <td>₹${r.totalAmount?.toFixed(2)}</td>
+        <td>${badgeHtml(r.status, r.status.toLowerCase())}</td>
+        <td>
+          ${r.status === 'ACTIVE'
+            ? `<button class="btn btn-danger" style="padding:0.3rem 0.7rem;font-size:0.8rem;" onclick="cancelBooking(${r.id})">Cancel</button>`
+            : '—'}
+        </td>
+      </tr>
+    `).join('');
+
+    // Populate feedback slot dropdown with unique booked slots
+    const seen = new Set();
+    reservations.forEach(r => {
+      if (r.slot && !seen.has(r.slot.id)) {
+        seen.add(r.slot.id);
+        bookedSlots[r.slot.id] = r.slot.slotNo;
+        const opt = document.createElement('option');
+        opt.value = r.slot.id;
+        opt.textContent = `Slot ${r.slot.slotNo}`;
+        fbSlot.appendChild(opt);
+      }
+    });
+  }
+
+  async function cancelBooking(id) {
+    if (!confirm('Cancel this reservation? The slot will be released.')) return;
+    const data = await apiPut('/reservations/cancel/' + id);
+    if (data.error) {
+      showAlert('alert-main', data.error, 'error');
+    } else {
+      showAlert('alert-main', 'Reservation cancelled successfully.', 'success');
+      loadReservations();
+    }
+  }
+
+  async function submitFeedback() {
+    const slotId  = document.getElementById('fb-slot').value;
+    const comment = document.getElementById('fb-comment').value.trim();
+
+    if (!slotId)          return showAlert('alert-fb', 'Please select a slot.', 'error');
+    if (!selectedRating)  return showAlert('alert-fb', 'Please select a rating.', 'error');
+    if (!comment)         return showAlert('alert-fb', 'Please write a comment.', 'error');
+
+    const data = await apiPost('/feedback/submit', {
+      userId: session.id,
+      slotId,
+      rating: selectedRating,
+      comment
+    });
+
+    if (data.error) {
+      showAlert('alert-fb', data.error, 'error');
+    } else {
+      showAlert('alert-fb', '✅ Feedback submitted! Thank you.', 'success');
+      document.getElementById('fb-comment').value = '';
+      setRating(0);
+      document.getElementById('fb-slot').value = '';
+    }
+  }
+
+  loadReservations();
+</script>
+</body>
+</html>
